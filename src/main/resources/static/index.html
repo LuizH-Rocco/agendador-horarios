@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agendador de Horários</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h2 { text-align: center; color: #4A90E2; }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #4A90E2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover { background-color: #357ABD; }
+        .buscar-section {
+            margin-top: 30px;
+            border-top: 2px solid #eee;
+            padding-top: 20px;
+        }
+        table {
+            width: 100%;
+            margin-top: 15px;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Novo Agendamento</h2>
+    <form id="formAgendamento">
+        <div class="form-group">
+            <label for="cliente">Cliente:</label>
+            <input type="text" id="cliente" required>
+        </div>
+        <div class="form-group">
+            <label for="telefone">Telefone:</label>
+            <input type="tel" id="telefone" required>
+        </div>
+        <div class="form-group">
+            <label for="servico">Serviço:</label>
+            <input type="text" id="servico" required>
+        </div>
+        <div class="form-group">
+            <label for="profissional">Profissional:</label>
+            <input type="text" id="profissional" required>
+        </div>
+        <div class="form-group">
+            <label for="dataHora">Data e Hora:</label>
+            <input type="datetime-local" id="dataHora" required>
+        </div>
+        <button type="submit">Agendar Horário</button>
+    </form>
+
+    <div class="buscar-section">
+        <h2>Visualizar Agendamentos por Dia</h2>
+        <div class="form-group">
+            <label for="buscaData">Escolha o Dia:</label>
+            <input type="date" id="buscaData" onchange="buscarAgendamentos()">
+        </div>
+
+        <table>
+            <thead>
+            <tr>
+                <th>Hora</th>
+                <th>Cliente</th>
+                <th>Serviço</th>
+                <th>Profissional</th>
+            </tr>
+            </thead>
+            <tbody id="tabelaAgendamentos">
+            <tr>
+                <td colspan="4" style="text-align:center;">Selecione uma data para listar</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const API_URL = 'http://localhost:8080/agendamentos';
+
+    // ✨ CORREÇÃO: Escuta o evento de mudança na data sem misturar JS dentro do HTML (remove o erro do onchange)
+    document.getElementById('buscaData').addEventListener('change', buscarAgendamentos);
+
+    // 1. EVENTO DE SALVAR (POST)
+    document.getElementById('formAgendamento').addEventListener('submit', async (e) => {
+        e.preventDefault(); // Impede a página de recarregar
+
+        const dados = {
+            cliente: document.getElementById('cliente').value,
+            telefoneCliente: document.getElementById('telefone').value,
+            servico: document.getElementById('servico').value,
+            profissional: document.getElementById('profissional').value,
+            dataHoraAgendamento: document.getElementById('dataHora').value
+        };
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dados)
+                // Note: O backend agora espera a entidade com ID do tipo Long (com L maiúsculo)
+                // que aceita o valor nulo enviado por aqui para novos registros!
+            });
+
+            if (response.ok) {
+                alert('Agendamento realizado com sucesso!');
+                document.getElementById('formAgendamento').reset(); // Limpa a tela
+                await buscarAgendamentos(); // Atualiza a lista se for o mesmo dia
+            } else {
+                const erro = await response.text();
+                alert('Erro ao agendar: ' + (erro || 'Horário indisponível'));
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Não foi possível conectar ao servidor Spring Boot.');
+        }
+    });
+
+    // 2. EVENTO DE BUSCAR POR DIA (GET)
+    async function buscarAgendamentos() {
+        const dataSelecionada = document.getElementById('buscaData').value;
+        if (!dataSelecionada) return;
+
+        try {
+            const response = await fetch(`${API_URL}?date=${dataSelecionada}`);
+
+            if (!response.ok) {
+                console.error('Erro na resposta do servidor');
+                return;
+            }
+
+            const lista = await response.json();
+            console.log("Dados recebidos do servidor:", lista);
+
+            const tabelaBody = document.getElementById('tabelaAgendamentos');
+            tabelaBody.innerHTML = '';
+
+            if (!lista || lista.length === 0) {
+                tabelaBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Nenhum agendamento para este dia</td></tr>';
+                return;
+            }
+
+            lista.forEach(item => {
+                let horaFormatada = "Horário inválido";
+
+                // Pega a data que veio do banco (seja com sublinhado ou camelCase)
+                const dataBanco = item.dataHoraAgendamento || item.data_hora_agendamento;
+
+                if (dataBanco) {
+                    // ✨ FORÇANDO PADRÃO AMERICANO: Substitui o espaço por 'T' se o banco mandar formato "YYYY-MM-DD HH:mm:ss"
+                    const dataISO = dataBanco.includes('T') ? dataBanco : dataBanco.replace(' ', 'T');
+                    const dataEHora = new Date(dataISO);
+
+                    horaFormatada = dataEHora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                }
+
+                const linha = `
+            <tr>
+                <td>${horaFormatada}</td>
+                <td>${item.cliente || item.CLIENTE || 'N/A'}</td>
+                <td>${item.servico || item.SERVICO || 'N/A'}</td>
+                <td>${item.profissional || item.PROFISSIONAL || 'N/A'}</td>
+            </tr>
+        `;
+                tabelaBody.innerHTML += linha;
+            });
+
+        } catch (error) {
+            console.error("Erro ao buscar agendamentos:", error);
+        }
+    }
+</script>
+
+</body>
+</html>

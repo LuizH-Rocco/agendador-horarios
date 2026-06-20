@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 @RestController()
 @RequestMapping("/agendamentos")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 public class AgendamentoController {
 
     private final AgendamentoService agendamentoService;
@@ -31,7 +32,8 @@ public class AgendamentoController {
     }
 
     @GetMapping
-    public ResponseEntity<Agendamento> buscarAgendamentosDia(@RequestParam LocalDate date) {
+    public ResponseEntity<java.util.List<com.javabox.agendador_horarios.infrastructure.entity.Agendamento>> buscarAgendamentosDia(
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate date) {
         return ResponseEntity.ok().body(agendamentoService.buscarAgendamentosDia(date));
     }
 

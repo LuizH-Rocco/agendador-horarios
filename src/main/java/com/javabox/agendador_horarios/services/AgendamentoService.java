@@ -20,7 +20,7 @@ public class AgendamentoService {
     public Agendamento salvarAgendamento(Agendamento agendamento) {
 
         LocalDateTime horaAgendamento = agendamento.getDataHoraAgendamento();
-        LocalDateTime horaFim = agendamento.getDataHoraAgendamento().plusHours(30);
+        LocalDateTime horaFim = agendamento.getDataHoraAgendamento().plusMinutes(30);
 
         Agendamento agendados = agendamentoRepository.findByServicoAndDataHoraAgendamentoBetween(agendamento.getServico(), horaAgendamento, horaFim);
 
@@ -36,11 +36,13 @@ public class AgendamentoService {
         agendamentoRepository.deleteByDataHoraAgendamentoAndCliente(dataHoraAgendamento, cliente);
     }
 
-    public Agendamento buscarAgendamentosDia(LocalDate data) {
+    public java.util.List<Agendamento> buscarAgendamentosDia(LocalDate data) {
         LocalDateTime primeiraHoraDia = data.atStartOfDay();
         LocalDateTime horaFinal = data.atTime(23, 59, 59);
 
-        return agendamentoRepository.findByDataHoraAgendamentoBetween(primeiraHoraDia, horaFinal);
+        return agendamentoRepository.findAll().stream()
+                .filter(a -> !a.getDataHoraAgendamento().isBefore(primeiraHoraDia) && !a.getDataHoraAgendamento().isAfter(horaFinal))
+                .collect(java.util.stream.Collectors.toList());
     }
 
     public Agendamento alterarAgendmento(Agendamento agendamento, String cliente, LocalDateTime dataHoraAgendamento) {
@@ -53,6 +55,5 @@ public class AgendamentoService {
         agendamento.setId(agenda.getId());
         return agendamentoRepository.save(agendamento);
 
-      }
+    }
 }
-
